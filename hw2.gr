@@ -1,0 +1,40 @@
+@start: s;
+
+s:
+    | f s_
+;
+
+s_:
+    | CHOICE f s_
+    |
+;
+
+f:
+    | k f_
+;
+
+f_:
+    | k f_
+    |
+;
+
+k:
+    | t k_
+;
+
+k_:
+    | STAR
+    |
+;
+
+t:
+    | OPEN s CLOSE
+    | C
+;
+
+STAR: "\\*";
+CHOICE: "\\|";
+OPEN: "\\(";
+CLOSE: "\\)";
+C: "\\w+";
+@skip: '\t' '\n' ' ';
