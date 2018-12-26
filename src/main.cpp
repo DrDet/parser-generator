@@ -10,7 +10,10 @@
 using namespace antlr4;
 
 int main(int , const char **) {
-    std::ifstream in("hw2.gr");
+//    std::regex reg("\\-\\d+");
+//    std::string s = "-1234";
+//    std::cout << std::regex_match(s, reg);
+    std::ifstream in("input_grammar.gr");
     ANTLRInputStream input(in);
     GrammarLexer lexer(&input);
     CommonTokenStream tokens(&lexer);

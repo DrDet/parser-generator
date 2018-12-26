@@ -15,9 +15,6 @@ struct Grammar {
     std::unordered_map<std::string, std::unordered_set<std::string>> follow;
 
     void gen_code();
-    void gen_parser();
-    void gen_lexer();
-    void gen_tree();
 
     Grammar() = default;
     explicit Grammar(std::string const & start);
@@ -28,5 +25,9 @@ struct Grammar {
     void calc_follow();
     std::unordered_set<std::string> get_first(Rule const& alpha);
 private:
-    Rule choose_rule(std::string const & non_term_name, std::string const & first_e);
+    int choose_rule(std::string const & non_term_name, std::string const & first_e);
+    void gen_parser();
+    void gen_lexer();
+    void gen_tree();
+    std::string get_parse_rule(non_term_t const & non_term, int rule_num);
 };

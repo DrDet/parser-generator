@@ -90,7 +90,7 @@ void Grammar::calc_follow() {
 }
 
 std::unordered_set<std::string> Grammar::get_first(Rule const &alpha) {
-    if (alpha.empty()) {
+    if (alpha.empty() || (alpha.size() == 1 && alpha[0] == "#")) {
         return {"#"};
     }
     if (isupper(alpha[0][0])) {
@@ -119,17 +119,23 @@ void Grammar::gen_parser() {
     "#include \"Lexer.h\"\n"
     "#include \"Tree.h\"\n"
     "\n"
+    "template <typename T>\n"
+    "struct result {\n"
+    "    node_t node;\n"
+    "    T val;\n"
+    "    result() = default;\n"
+    "};\n"
     "class Parser {\n"
     "public:\n"
     "    Parser() = default;\n"
-    "    node_t parse(const std::string & s);\n"
+    "    result<" << non_terms[start]->ret_type << "> parse(const std::string & s);\n"
     "private:\n"
     "    Lexer lexer;\n";
     for (auto &non_term : non_terms) {
-        parser_h_code << "    node_t " << non_term.second->name << "();\n";
+        parser_h_code << "    result<" << non_term.second->ret_type << "> " << non_term.second->name << "();\n";
     }
     parser_h_code <<
-    "    node_t term_symbol(std::string const & s);\n"
+    "    result<std::string> term_symbol(std::string const & s);\n"
     "    node_t eps_symbol();\n"
     "    void parser_error();\n"
     "};\n"
@@ -148,9 +154,9 @@ void Grammar::gen_parser() {
     "using std::unique_ptr;\n"
     "using std::string;\n"
     "\n"
-    "node_t Parser::parse(const string &__str) {\n"
+    "result<" << non_terms[start]->ret_type << "> Parser::parse(const string &__str) {\n"
     "    lexer = Lexer(__str);\n"
-    "    node_t root = " << start << "();\n"
+    "    result<" << non_terms[start]->ret_type << "> root = " << start << "();\n"
     "    if (lexer.get_cur_tok() == END$) {\n"
     "        return root;\n"
     "    }\n"
@@ -159,8 +165,10 @@ void Grammar::gen_parser() {
     for (auto &non_term : non_terms) {
         std::string& name = non_term.second->name;
         parser_cpp_code <<
-        "node_t Parser::" << name << "() {\n"
+        "result<" << non_term.second->ret_type << "> Parser::" << name << "() {\n"
+        "    result<" << non_term.second->ret_type << "> res;\n"
         "    node_t root(new Node(\"" << name << "\"));\n"
+        "    " << non_term.second->ret_type << " $val = res.val;\n"
         "    switch (lexer.get_cur_tok()) {\n";
         bool has_eps = false;
         for (auto &term_name: first[name]) {
@@ -170,41 +178,38 @@ void Grammar::gen_parser() {
             }
             parser_cpp_code <<
             "        case " << term_name << ": {\n";
-            Rule rule = choose_rule(name, term_name);
-            for (auto &unit: rule) {
-                parser_cpp_code << "            ";
-                if (islower(unit[0])) {
-                    parser_cpp_code << "root->append_child(" << unit << "());\n";
-                } else {
-                    parser_cpp_code << "root->append_child(term_symbol(lexer.get_cur_tok_text()));\n";
-                }
-            }
-            parser_cpp_code << "            break;\n        }\n";
+            int rule_num = choose_rule(name, term_name);
+            parser_cpp_code << get_parse_rule(non_term.second, rule_num);
+            parser_cpp_code << "        }\n";
         }
         if (has_eps) {
             for (auto &term_name: follow[name]) {
                 parser_cpp_code << "        case " << term_name << ":\n";
             }
-            parser_cpp_code <<
-            "        {\n"
-            "            root->append_child(eps_symbol());\n"
-            "            break;\n"
-            "        }\n";
+            int eps_rule_num = choose_rule(name, "#");
+            parser_cpp_code << "        {\n";
+            parser_cpp_code << get_parse_rule(non_term.second, eps_rule_num);
+            parser_cpp_code << "        }\n";
         }
         parser_cpp_code <<
         "        default: {\n"
         "            parser_error();\n"
         "        }\n"
         "    }\n"
-        "    return root;\n"
+        "    res.node = std::move(root);\n"
+        "    res.val = $val;\n"
+        "    return res;\n"
         "}\n\n"
         "\n";
     }
     parser_cpp_code <<
-    "node_t Parser::term_symbol(string const & s) {\n"
+    "result<std::string> Parser::term_symbol(string const & s) {\n"
+    "    result<std::string> res;\n"
     "    node_t node(new Node(s));\n"
     "    lexer.next_token();\n"
-    "    return node;\n"
+    "    res.node = std::move(node);\n"
+    "    res.val = s;\n"
+    "    return res;\n"
     "}\n"
     "\n"
     "node_t Parser::eps_symbol() {\n"
@@ -359,7 +364,7 @@ void Grammar::gen_code() {
     gen_tree();
 }
 
-Rule Grammar::choose_rule(std::string const &non_term_name, std::string const &first_e) {
+int Grammar::choose_rule(std::string const &non_term_name, std::string const &first_e) {
     auto &rules = non_terms[non_term_name]->rules;
     int ans = -1;
     for (size_t i = 0; i < rules.size(); ++i) {
@@ -369,7 +374,8 @@ Rule Grammar::choose_rule(std::string const &non_term_name, std::string const &f
             ans = static_cast<int>(i);
         }
     }
-    return rules[ans];
+    assert(ans != -1);
+    return ans;
 }
 
 void Grammar::gen_tree() {
@@ -441,4 +447,25 @@ void Grammar::gen_tree() {
     "    return ss.str();\n"
     "}\n"
     "\n";
+}
+
+std::string Grammar::get_parse_rule(non_term_t const &non_term, int rule_num) {
+    std::stringstream parser_cpp_code;
+    for (auto &unit: non_term->rules[rule_num]) {
+        parser_cpp_code << "            ";
+        if (unit == "#") {
+            parser_cpp_code << "root->append_child(eps_symbol());\n";
+        } else if (islower(unit[0])) {
+            parser_cpp_code << "auto $" << unit << " = " << unit << "();\n";
+            parser_cpp_code << "            ";
+            parser_cpp_code << "root->append_child(std::move($" << unit << ".node));\n";
+        } else {
+            parser_cpp_code << "auto $" << unit << " = term_symbol(lexer.get_cur_tok_text());\n";
+            parser_cpp_code << "            ";
+            parser_cpp_code << "root->append_child(std::move($" << unit << ".node));\n";
+        }
+    }
+    parser_cpp_code << "           " << non_term->code[rule_num] << "\n";
+    parser_cpp_code << "            break;\n";
+    return parser_cpp_code.str();
 }

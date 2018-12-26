@@ -1,0 +1,24 @@
+@start: add_sub;
+
+add_sub @returns [int]:
+    | atom add_sub_cont       { $val = $atom.val + $add_sub_cont.val; }
+;
+
+add_sub_cont @returns [int]:
+    | ADD atom add_sub_cont  { $val = $atom.val + $add_sub_cont.val; }
+    | SUB atom add_sub_cont  { $val = -$atom.val + $add_sub_cont.val; }
+    |                        { $val = 0; }
+;
+
+atom @returns [int]:
+    | OPEN add_sub CLOSE    { $val = $add_sub.val; }
+    | NUM                   { $val = std::stoi($NUM.val); }
+;
+
+ADD: "\\+";
+SUB: "\\-";
+OPEN: "\\(";
+CLOSE: "\\)";
+NUM: "\\d+";
+
+@skip: ' ' '\t' '\n' '\r';

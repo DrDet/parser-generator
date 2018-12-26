@@ -2,8 +2,9 @@
 #include <memory>
 #include "NonTerm.h"
 
-void NonTerm::add_rule(Rule const &rule) {
+void NonTerm::add_rule(Rule const &rule, std::string const & code) {
     rules.push_back(rule);
+    this->code.push_back(code);
 }
 
 NonTerm::NonTerm(std::string const &name) : Unit(name) {
@@ -25,4 +26,13 @@ void NonTerm::print() {
         }
         cout << endl;
     }
+    cout << "ret type: " << ret_type << endl;
+    cout << "code:\n";
+    for (auto &c: code) {
+        cout << c << endl;
+    }
+}
+
+NonTerm::NonTerm() : ret_type("int") {
+
 }

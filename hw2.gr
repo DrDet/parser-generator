@@ -1,7 +1,7 @@
 @start: s;
 
-s:
-    | f s_
+s [returns int]:
+    | f s_      { /* $val, $f.val, $s_.val */ }
 ;
 
 s_:

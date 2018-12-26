@@ -65,20 +65,23 @@ start returns [Grammar grammar]
 ;
 
 non_terminal returns [NonTerm non_term]
-    : NTERM ':'     { $non_term = NonTerm($NTERM.text); }
+    : NTERM
+        ( '@returns'  RetType  { $non_term.ret_type = $RetType.text.substr(1, $RetType.text.length() - 2); })?
+        ':'     { $non_term.name = $NTERM.text; }
         ('|' production
             {
-                $non_term.add_rule($production.rule);
+                $non_term.add_rule($production.rule, $production.code);
             }
         )+
         ';'
 ;
 
-production returns [Rule rule]
+production returns [Rule rule, std::string code]
     : (   NTERM      { $rule.push_back($NTERM.text); }
         | TERM       { $rule.push_back($TERM.text); }
       )+
-    |                { $rule; }
+      (Code  {$code = $Code.text.substr(1, $Code.text.length() - 2);} )?
+    | (Code  {$code = $Code.text.substr(1, $Code.text.length() - 2);} )?    { $rule.push_back("#"); }
 ;
 
 terminal returns [Term term]
@@ -95,8 +98,9 @@ skip_symbols returns [std::unordered_set<char> skip_chars]:
 
 TERM   : [A-Z][a-zA-Z0-9_]*;
 NTERM  : [a-z][a-zA-Z0-9_]*;
-
+RetType: '[' .*? ']';
 STRING : '"' .*? '"';
 SYMBOL : '\'' ('\\')? . '\'';
+Code   : '{' .*? '}';
 WS     : (' ' | '\t' | '\r'| '\n') -> skip;
 //CODE   : '{' (~[{}]+ CODE?)* '}';
