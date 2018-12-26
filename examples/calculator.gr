@@ -1,0 +1,34 @@
+@start: add_sub;
+
+add_sub @returns [int]:
+    | fact add_sub_cont{0}       { $val = $fact.val + $add_sub_cont.val; }
+;
+
+add_sub_cont @params[int a] @returns [int]:
+    | ADD fact add_sub_cont{a + 1}  { $val = $fact.val + $add_sub_cont.val; std::cout << a << std::endl; }
+    | SUB fact add_sub_cont{a + 1}  { $val = -$fact.val + $add_sub_cont.val; std::cout << a << std::endl; }
+    |                               { $val = 0; std::cout << a << std::endl; }
+;
+
+fact @returns [int]:
+    | atom fact_cont{$atom.val}     { $val = $fact_cont.val; }
+;
+
+fact_cont @params[int x] @returns [int]:
+    | FACT fact_cont{calc_fact(x)}         { $val = $fact_cont.val; }
+    |                                      { $val = x; }
+;
+
+atom @returns [int]:
+    | OPEN add_sub CLOSE    { $val = $add_sub.val; }
+    | NUM                   { $val = std::stoi($NUM.val); }
+;
+
+ADD: "\\+";
+SUB: "\\-";
+FACT: "\\!";
+OPEN: "\\(";
+CLOSE: "\\)";
+NUM: "\\d+";
+
+@skip: ' ' '\t' '\n' '\r';

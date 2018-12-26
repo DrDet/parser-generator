@@ -132,7 +132,7 @@ void Grammar::gen_parser() {
     "private:\n"
     "    Lexer lexer;\n";
     for (auto &non_term : non_terms) {
-        parser_h_code << "    result<" << non_term.second->ret_type << "> " << non_term.second->name << "();\n";
+        parser_h_code << "    result<" << non_term.second->ret_type << "> " << non_term.second->name << "(" << non_term.second->arg_list << ");\n";
     }
     parser_h_code <<
     "    result<std::string> term_symbol(std::string const & s);\n"
@@ -150,9 +150,16 @@ void Grammar::gen_parser() {
     parser_cpp_code <<
     "#include \"Parser.h\"\n"
     "#include <memory>\n"
+    "#include <iostream>\n"
     "\n"
     "using std::unique_ptr;\n"
     "using std::string;\n"
+    "int calc_fact(int x) {\n"
+    "    if (x < 2) {\n"
+    "        return 1; \n"
+    "    }\n"
+    "    return x * calc_fact(x - 1);\n"
+    "}\n"
     "\n"
     "result<" << non_terms[start]->ret_type << "> Parser::parse(const string &__str) {\n"
     "    lexer = Lexer(__str);\n"
@@ -165,7 +172,7 @@ void Grammar::gen_parser() {
     for (auto &non_term : non_terms) {
         std::string& name = non_term.second->name;
         parser_cpp_code <<
-        "result<" << non_term.second->ret_type << "> Parser::" << name << "() {\n"
+        "result<" << non_term.second->ret_type << "> Parser::" << name << "(" << non_term.second->arg_list << ") {\n"
         "    result<" << non_term.second->ret_type << "> res;\n"
         "    node_t root(new Node(\"" << name << "\"));\n"
         "    " << non_term.second->ret_type << " $val = res.val;\n"
@@ -451,12 +458,13 @@ void Grammar::gen_tree() {
 
 std::string Grammar::get_parse_rule(non_term_t const &non_term, int rule_num) {
     std::stringstream parser_cpp_code;
+    int idx = 0;
     for (auto &unit: non_term->rules[rule_num]) {
         parser_cpp_code << "            ";
         if (unit == "#") {
             parser_cpp_code << "root->append_child(eps_symbol());\n";
         } else if (islower(unit[0])) {
-            parser_cpp_code << "auto $" << unit << " = " << unit << "();\n";
+            parser_cpp_code << "auto $" << unit << " = " << unit << "(" << non_term->exp_lists[rule_num][idx] << ");\n";
             parser_cpp_code << "            ";
             parser_cpp_code << "root->append_child(std::move($" << unit << ".node));\n";
         } else {
@@ -464,6 +472,7 @@ std::string Grammar::get_parse_rule(non_term_t const &non_term, int rule_num) {
             parser_cpp_code << "            ";
             parser_cpp_code << "root->append_child(std::move($" << unit << ".node));\n";
         }
+        ++idx;
     }
     parser_cpp_code << "           " << non_term->code[rule_num] << "\n";
     parser_cpp_code << "            break;\n";

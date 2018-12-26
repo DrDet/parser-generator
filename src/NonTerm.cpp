@@ -2,9 +2,10 @@
 #include <memory>
 #include "NonTerm.h"
 
-void NonTerm::add_rule(Rule const &rule, std::string const & code) {
+void NonTerm::add_rule(Rule const &rule, std::string const & code, const std::vector<std::string> & exp_list) {
     rules.push_back(rule);
     this->code.push_back(code);
+    exp_lists.push_back(exp_list);
 }
 
 NonTerm::NonTerm(std::string const &name) : Unit(name) {
